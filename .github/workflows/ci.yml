@@ -8,6 +8,9 @@ on:
         description: Upload this commit to TestFlight
         type: boolean
 
+env:
+  CLANG_MODULE_CACHE_PATH: /tmp/clang-module-cache
+
 jobs:
   build:
     runs-on: macos-latest
@@ -19,6 +22,12 @@ jobs:
       HAS_DEVID: ${{ secrets.DEVID_P12 != '' }}
     steps:
       - uses: actions/checkout@v4
+      - id: swift
+        run: echo "version=$(swiftc --version 2>&1 | shasum | cut -c1-12)" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v4
+        with:
+          path: /tmp/clang-module-cache
+          key: clang-modules-${{ steps.swift.outputs.version }}
       - run: ./build.sh
       - run: ./test.sh
       - name: Developer ID sign + notarize
