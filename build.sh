@@ -13,7 +13,7 @@ cat > "$app/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
-  <key>CFBundleIdentifier</key><string>io.github.northisup.clipmd</string>
+  <key>CFBundleIdentifier</key><string>com.northisup.clipmd</string>
   <key>CFBundleName</key><string>Clip.md</string>
   <key>CFBundleExecutable</key><string>ClipMD</string>
   <key>CFBundlePackageType</key><string>APPL</string>
