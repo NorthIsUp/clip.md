@@ -1,0 +1,25 @@
+[tasks.build]
+run = "./build.sh"
+
+[tasks.test]
+run = "./test.sh"
+
+[tasks.install]
+depends = ["build"]
+run = "pkill -x ClipMD || true; rm -rf /Applications/Clip.md.app && cp -R build/Clip.md.app /Applications/ && open /Applications/Clip.md.app"
+
+[tasks.bump]
+usage = 'arg "<part>" help="major, minor, or patch" { choices "major" "minor" "patch" }'
+run = '''
+IFS=. read -r ma mi pa < VERSION
+case "$usage_part" in major) ma=$((ma+1)) mi=0 pa=0;; minor) mi=$((mi+1)) pa=0;; patch) pa=$((pa+1));; esac
+echo "$ma.$mi.$pa" > VERSION && cat VERSION
+'''
+
+[tasks.icon]
+depends = ["build"]
+run = '''
+mkdir -p docs
+build/Clip.md.app/Contents/MacOS/ClipMD --icon docs/icon-light.png 1f2328
+build/Clip.md.app/Contents/MacOS/ClipMD --icon docs/icon-dark.png f0f6fc
+'''

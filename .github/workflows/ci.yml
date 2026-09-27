@@ -1,0 +1,26 @@
+name: ci
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - run: ./build.sh
+      - run: ./test.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Clip.md
+          path: build/Clip.md.zip
+      - name: Release on version bump
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="v$(cat VERSION)"
+          if gh release view "$tag" >/dev/null 2>&1; then echo "$tag exists"; exit 0; fi
+          gh release create "$tag" build/Clip.md.zip --target "$GITHUB_SHA" --title "$tag" --generate-notes
