@@ -9,13 +9,17 @@
 
 <p align="center">Clip.md watches the clipboard for apps you select to make sure that formatted text correctly pastes as Markdown when pasting into a code editor.</p>
 
----
+----
+
+**tl;dr**: download latest here: [Clip.md.dmg](https://github.com/NorthIsUp/clip.md/releases/latest/download/Clip.md.dmg)
+
+----
 
 To watch an app, open the menubar menu while that app is in front and pick **Watch &lt;App&gt;**. Click a watched app to stop watching it. Other clipboard formats (HTML, RTF, and so on) are left untouched.
 
 ## Install
 
-Download `Clip.md.zip` from the [latest release](../../releases/latest), unzip it, and move it to `/Applications`. Releases are signed with Developer ID and notarized by Apple.
+Download [Clip.md.dmg](https://github.com/NorthIsUp/clip.md/releases/latest/download/Clip.md.dmg), open it, and drag Clip.md to Applications. Releases are signed with Developer ID and notarized by Apple.
 
 ## Develop
 
