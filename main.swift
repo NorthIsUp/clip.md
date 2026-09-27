@@ -180,6 +180,16 @@ let icon: NSImage = {
     return img
 }()
 
+func png(size: NSSize, to path: String, draw: (NSRect) -> Void) {
+    let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(size.width), pixelsHigh: Int(size.height),
+                               bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB,
+                               bytesPerRow: 0, bitsPerPixel: 0)!
+    NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
+    draw(NSRect(origin: .zero, size: size))
+    NSGraphicsContext.current?.flushGraphics()
+    try! rep.representation(using: .png, properties: [:])!.write(to: URL(fileURLWithPath: path))
+}
+
 extension NSColor {
     convenience init(hex: String) {
         let v = Int(hex.trimmingCharacters(in: ["#"]), radix: 16) ?? 0
@@ -297,17 +307,36 @@ case "--convert-web-custom-data":
     exit(0)
 case "--icon":
     // --icon <out.png> <hex color>: README art, same drawing as the menubar.
-    let args = CommandLine.arguments, scale = 8.0
-    let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(icon.size.width * scale), pixelsHigh: Int(icon.size.height * scale),
-                               bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB,
-                               bytesPerRow: 0, bitsPerPixel: 0)!
-    let rect = NSRect(x: 0, y: 0, width: rep.pixelsWide, height: rep.pixelsHigh)
-    NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
-    icon.draw(in: rect)
-    NSColor(hex: args[3]).set()
-    rect.fill(using: .sourceAtop)
-    NSGraphicsContext.current?.flushGraphics()
-    try! rep.representation(using: .png, properties: [:])!.write(to: URL(fileURLWithPath: args[2]))
+    let args = CommandLine.arguments
+    png(size: NSSize(width: icon.size.width * 8, height: icon.size.height * 8), to: args[2]) { rect in
+        icon.draw(in: rect)
+        NSColor(hex: args[3]).set()
+        rect.fill(using: .sourceAtop)
+    }
+    exit(0)
+case "--app-icon":
+    // --app-icon <out.iconset>: Finder/App Store icon, the menubar glyph in white on a squircle.
+    let dir = CommandLine.arguments[2]
+    try! FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
+    let glyph = NSImage(size: icon.size, flipped: false) { r in
+        icon.draw(in: r)
+        NSColor.white.set()
+        r.fill(using: .sourceAtop)
+        return true
+    }
+    for pt in [16, 32, 128, 256, 512] {
+        for scale in [1, 2] {
+            let px = CGFloat(pt * scale)
+            png(size: NSSize(width: px, height: px), to: "\(dir)/icon_\(pt)x\(pt)\(scale == 2 ? "@2x" : "").png") { r in
+                // Apple's macOS grid: 824/1024 body, 185/1024 corner radius.
+                let body = r.insetBy(dx: px * 100 / 1024, dy: px * 100 / 1024)
+                let path = NSBezierPath(roundedRect: body, xRadius: px * 185 / 1024, yRadius: px * 185 / 1024)
+                NSGradient(starting: NSColor(hex: "4f46e5"), ending: NSColor(hex: "9333ea"))!.draw(in: path, angle: -60)
+                let h = body.height * 0.62, w = h * icon.size.width / icon.size.height
+                glyph.draw(in: NSRect(x: body.midX - w / 2, y: body.midY - h / 2, width: w, height: h))
+            }
+        }
+    }
     exit(0)
 default: break
 }

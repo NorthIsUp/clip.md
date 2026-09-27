@@ -15,11 +15,7 @@ To watch an app, open the menubar menu while that app is in front and pick **Wat
 
 ## Install
 
-Download `Clip.md.zip` from the [latest release](../../releases/latest), unzip it, move it to `/Applications`, then run:
-
-```sh
-xattr -dr com.apple.quarantine /Applications/Clip.md.app   # builds are ad-hoc signed, not notarized
-```
+Download `Clip.md.zip` from the [latest release](../../releases/latest), unzip it, and move it to `/Applications`. Releases are signed with Developer ID and notarized by Apple.
 
 ## Develop
 
@@ -27,5 +23,6 @@ xattr -dr com.apple.quarantine /Applications/Clip.md.app   # builds are ad-hoc s
 mise run install     # build, copy to /Applications, launch
 mise run test        # fixtures/* must convert to their .md siblings
 mise run icon        # re-render docs/icon-*.png
-mise run bump patch  # on main, CI releases v<VERSION> with Clip.md.zip
+mise run testflight  # sign for the Mac App Store and upload to TestFlight
+mise run bump patch  # on main, CI releases a notarized v<VERSION> and uploads it to TestFlight
 ```

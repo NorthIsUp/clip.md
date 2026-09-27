@@ -23,3 +23,7 @@ mkdir -p docs
 build/Clip.md.app/Contents/MacOS/ClipMD --icon docs/icon-light.png 1f2328
 build/Clip.md.app/Contents/MacOS/ClipMD --icon docs/icon-dark.png f0f6fc
 '''
+
+[tasks.testflight]
+description = "Sign for the Mac App Store and upload to TestFlight"
+run = "scripts/appstore.sh"

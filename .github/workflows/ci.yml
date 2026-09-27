@@ -2,21 +2,41 @@ name: ci
 on:
   push:
   pull_request:
+  workflow_dispatch:
+    inputs:
+      testflight:
+        description: Upload this commit to TestFlight
+        type: boolean
 
 jobs:
   build:
     runs-on: macos-latest
     permissions:
       contents: write
+    outputs:
+      released: ${{ steps.release.outputs.released }}
+    env:
+      HAS_DEVID: ${{ secrets.DEVID_P12 != '' }}
     steps:
       - uses: actions/checkout@v4
       - run: ./build.sh
       - run: ./test.sh
+      - name: Developer ID sign + notarize
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push' && env.HAS_DEVID == 'true'
+        env:
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+          DIST_P12: ${{ secrets.DIST_P12 }}
+          INSTALLER_P12: ${{ secrets.INSTALLER_P12 }}
+          DEVID_P12: ${{ secrets.DEVID_P12 }}
+          P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
+          PROFILE: ${{ secrets.PROFILE }}
+        run: scripts/ci-signing.sh && scripts/devid.sh
       - uses: actions/upload-artifact@v4
         with:
           name: Clip.md
           path: build/Clip.md.zip
       - name: Release on version bump
+        id: release
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         env:
           GH_TOKEN: ${{ github.token }}
@@ -24,3 +44,21 @@ jobs:
           tag="v$(cat VERSION)"
           if gh release view "$tag" >/dev/null 2>&1; then echo "$tag exists"; exit 0; fi
           gh release create "$tag" build/Clip.md.zip --target "$GITHUB_SHA" --title "$tag" --generate-notes
+          echo released=true >> "$GITHUB_OUTPUT"
+
+  testflight:
+    needs: build
+    if: needs.build.outputs.released == 'true' || inputs.testflight
+    runs-on: macos-latest
+    concurrency: testflight
+    steps:
+      - uses: actions/checkout@v4
+      - name: Signing
+        env:
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+          DIST_P12: ${{ secrets.DIST_P12 }}
+          INSTALLER_P12: ${{ secrets.INSTALLER_P12 }}
+          P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
+          PROFILE: ${{ secrets.PROFILE }}
+        run: scripts/ci-signing.sh
+      - run: scripts/appstore.sh
