@@ -1,4 +1,5 @@
 import AppKit
+import ServiceManagement
 
 // MARK: HTML → Markdown
 
@@ -250,6 +251,8 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate {
             mi.image = front.icon.map(menuIcon)
         }
         menu.addItem(.separator())
+        menu.addItem(withTitle: "Launch at Login", action: #selector(toggleLogin), keyEquivalent: "").state =
+            SMAppService.mainApp.status == .enabled ? .on : .off
         menu.addItem(withTitle: "Quit", action: #selector(NSApp.terminate), keyEquivalent: "q")
         for mi in menu.items where mi.action != nil && mi.action != #selector(NSApp.terminate) { mi.target = self }
     }
@@ -261,6 +264,13 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc func toggle() { enabled.toggle() }
+    @objc func toggleLogin() {
+        do {
+            if SMAppService.mainApp.status == .enabled { try SMAppService.mainApp.unregister() } else { try SMAppService.mainApp.register() }
+        } catch {
+            NSAlert(error: error).runModal()
+        }
+    }
     @objc func watch(_ mi: NSMenuItem) { watched.append(mi.representedObject as! String) }
     @objc func unwatch(_ mi: NSMenuItem) { watched.removeAll { $0 == mi.representedObject as? String } }
 
