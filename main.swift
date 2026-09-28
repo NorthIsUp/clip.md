@@ -251,9 +251,11 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate {
             mi.image = front.icon.map(menuIcon)
         }
         menu.addItem(.separator())
-        menu.addItem(withTitle: "Launch at Login", action: #selector(toggleLogin), keyEquivalent: "").state =
-            SMAppService.mainApp.status == .enabled ? .on : .off
-        menu.addItem(withTitle: "Quit", action: #selector(NSApp.terminate), keyEquivalent: "q")
+        let login = menu.addItem(withTitle: "Launch at Login", action: #selector(toggleLogin), keyEquivalent: "")
+        login.state = SMAppService.mainApp.status == .enabled ? .on : .off
+        login.image = NSImage(systemSymbolName: "person.badge.clock", accessibilityDescription: nil)
+        menu.addItem(withTitle: "Quit", action: #selector(NSApp.terminate), keyEquivalent: "q").image =
+            NSImage(systemSymbolName: "power", accessibilityDescription: nil)
         for mi in menu.items where mi.action != nil && mi.action != #selector(NSApp.terminate) { mi.target = self }
     }
 
