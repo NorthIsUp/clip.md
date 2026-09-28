@@ -235,7 +235,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.removeAllItems()
         menu.addItem(withTitle: "Enabled", action: #selector(toggle), keyEquivalent: "").state = enabled ? .on : .off
         menu.addItem(.separator())
-        menu.addItem(withTitle: "Watched apps (click to remove)", action: nil, keyEquivalent: "")
+        menu.addItem(withTitle: "Watched apps", action: nil, keyEquivalent: "")
         for id in watched {
             let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: id)
             let mi = menu.addItem(withTitle: url?.deletingPathExtension().lastPathComponent ?? id,

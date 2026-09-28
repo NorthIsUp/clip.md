@@ -111,7 +111,7 @@ struct MenuRow: View {
 let menu = VStack(alignment: .leading, spacing: 0) {
     MenuRow(title: "Enabled", checked: true)
     Divider().padding(.vertical, 5)
-    MenuRow(title: "Watched apps (click to remove)", dim: true)
+    MenuRow(title: "Watched apps", dim: true)
     MenuRow(title: "Slack", checked: true, icon: appIcon("com.tinyspeck.slackmacgap"))
     MenuRow(title: "Notion", checked: true, icon: appIcon("notion.id"))
     MenuRow(title: "Watch Xcode", icon: appIcon("com.apple.dt.Xcode"))
