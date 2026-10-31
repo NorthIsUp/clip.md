@@ -45,12 +45,24 @@ func block(_ e: XMLNode) -> String {
     case "ul", "ol":
         let ordered = name(e) == "ol"
         var i = Int(attr(e, "start") ?? "") ?? 1
-        return kids.filter { name($0) == "li" }.map { li in
+        var items: [[XMLNode]] = []
+        for li in kids where name(li) == "li" {
+            let nodes = li.children ?? []
+            // Google Docs puts a sublist beside the <li> it belongs to; tidy wraps it in a bare <li>.
+            let sublist = nodes.allSatisfy { $0.kind == .element ? ["ul", "ol"].contains(name($0)) : raw($0).allSatisfy(\.isWhitespace) }
+                && nodes.contains { $0.kind == .element }
+            if sublist, !items.isEmpty {
+                items[items.count - 1] += nodes
+            } else {
+                items.append(nodes)
+            }
+        }
+        return items.map { nodes in
             let marker = ordered ? "\(i). " : "- "
             i += 1
             let pad = String(repeating: " ", count: marker.count)
-            let loose = li.children?.contains { name($0) == "p" } == true
-            let lines = blocks(li.children ?? [], sep: loose ? "\n\n" : "\n").split(separator: "\n", omittingEmptySubsequences: false)
+            let loose = nodes.filter { name($0) == "p" }.count > 1
+            let lines = blocks(nodes, sep: loose ? "\n\n" : "\n").split(separator: "\n", omittingEmptySubsequences: false)
             return marker + lines.enumerated().map { $0 == 0 || $1.isEmpty ? String($1) : pad + $1 }.joined(separator: "\n")
         }.joined(separator: "\n")
     case "hr":
@@ -80,7 +92,10 @@ func inline(_ n: XMLNode) -> String {
     let inner = { (n.children ?? []).map(inline).joined() }
     switch name(n) {
     case "br": return "\n"
-    case "b", "strong": return wrap(inner(), "**")
+    case "b", "strong":
+        // Google Docs wraps the whole copy in <b style="font-weight:normal">.
+        let style = (attr(n, "style") ?? "").lowercased().replacingOccurrences(of: " ", with: "")
+        return style.contains("font-weight:normal") || style.contains("font-weight:400") ? inner() : wrap(inner(), "**")
     case "i", "em": return wrap(inner(), "_")
     case "s", "strike", "del": return wrap(inner(), "~~")
     case "code": return wrap(raw(n), "`")
@@ -153,7 +168,71 @@ func unescape(_ md: String) -> String {
     }.joined(separator: "\n")
 }
 
-func markdown(fromWebCustomData d: Data) -> String? { webCustomData(d)["text/markdown"].map(unescape) }
+func markdown(fromWebCustomData d: Data) -> String? {
+    let custom = webCustomData(d)
+    return custom["text/markdown"].map(unescape) ?? custom["slack/texty"].flatMap(markdown(fromTexty:))
+}
+
+// MARK: Slack composer (Quill Delta)
+
+/// Copying from Slack's composer yields only `slack/texty`, a Quill Delta: text runs carry
+/// inline attributes, and each "\n" carries the block attributes of the line it ends.
+func markdown(fromTexty json: String) -> String? {
+    guard let root = try? JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any],
+          let ops = root["ops"] as? [[String: Any]]
+    else { return nil }
+    var lines: [(text: String, attrs: [String: Any])] = []
+    var line = ""
+    for op in ops {
+        let attrs = op["attributes"] as? [String: Any] ?? [:]
+        if let s = op["insert"] as? String {
+            for (i, part) in s.split(separator: "\n", omittingEmptySubsequences: false).enumerated() {
+                if i > 0 { lines.append((line, attrs)); line = "" }
+                line += styled(String(part), attrs)
+            }
+        } else if let embed = (op["insert"] as? [String: Any])?.values.first as? [String: Any] {
+            line += embed["text"] as? String ?? embed["label"] as? String ?? ""
+        }
+    }
+    if !line.isEmpty { lines.append((line, [:])) }
+
+    var out: [String] = [], counters: [Int] = [], pads = [0]
+    var inList = false, fenced = false
+    for (text, a) in lines {
+        if (a["code-block"] != nil) != fenced { out.append("```"); fenced.toggle() }
+        if fenced { out.append(text); continue }
+        guard let list = a["list"] as? String else {
+            if inList, !text.isEmpty { out.append("") }
+            inList = false
+            counters = []
+            out.append(a["blockquote"] != nil ? "> " + text : text)
+            continue
+        }
+        if !inList, out.last?.isEmpty == false { out.append("") }
+        inList = true
+        let depth = a["indent"] as? Int ?? 0
+        counters = Array(counters.prefix(depth + 1)) + Array(repeating: 0, count: max(0, depth + 1 - counters.count))
+        counters[depth] += 1
+        while pads.count <= depth { pads.append(pads.last! + 2) }
+        let marker = list == "ordered" ? "\(counters[depth]). " : "- "
+        out.append(String(repeating: " ", count: pads[depth]) + marker + text)
+        pads = Array(pads.prefix(depth + 1)) + [pads[depth] + marker.count]
+    }
+    if fenced { out.append("```") }
+    return out.joined(separator: "\n").trimmingCharacters(in: .newlines)
+}
+
+func styled(_ s: String, _ a: [String: Any]) -> String {
+    guard !s.isEmpty else { return s }
+    if a["code"] != nil { return wrap(s, "`") }
+    var t = s
+    let url = (a["slackslug"] as? [String: Any])?["url"] as? String ?? a["link"] as? String
+    if let url { t = url == s || url.hasSuffix("://" + s) ? url : "[\(s)](\(url))" }
+    if a["strike"] != nil { t = wrap(t, "~~") }
+    if a["italic"] != nil { t = wrap(t, "_") }
+    if a["bold"] != nil { t = wrap(t, "**") }
+    return t
+}
 
 /// Clipboard symbol with ".md" over its lower right.
 let icon: NSImage = {
@@ -279,7 +358,9 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func poll() {
         guard pb.changeCount != seen else { return }
         seen = pb.changeCount
-        guard enabled, NSWorkspace.shared.frontmostApplication?.bundleIdentifier.map(watched.contains) == true else { return }
+        // Google Docs lives in a browser, so it's recognized by the marker in its HTML rather than by app.
+        guard enabled, NSWorkspace.shared.frontmostApplication?.bundleIdentifier.map(watched.contains) == true
+            || pb.string(forType: .html)?.contains("docs-internal-guid-") == true else { return }
         rewrite()
     }
 
@@ -290,7 +371,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate {
         var changed = false
         let fresh = items.map { old -> NSPasteboardItem in
             let new = NSPasteboardItem()
-            // Slack's "Copy message" has no HTML but hides its own Markdown in Chromium custom data.
+            // Slack's "Copy message" and composer copies have no HTML, only Chromium custom data.
             var md = old.data(forType: chromiumCustom).flatMap(markdown(fromWebCustomData:))
             if md == nil, let html = old.string(forType: .html) { md = markdown(fromHTML: html) }
             for t in old.types {

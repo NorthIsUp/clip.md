@@ -15,7 +15,7 @@
 
 ----
 
-To watch an app, open the menubar menu while that app is in front and pick **Watch &lt;App&gt;**. Click a watched app to stop watching it. Other clipboard formats (HTML, RTF, and so on) are left untouched.
+To watch an app, open the menubar menu while that app is in front and pick **Watch &lt;App&gt;**. Click a watched app to stop watching it. Google Docs copies are converted from any browser, no watching needed. Other clipboard formats (HTML, RTF, and so on) are left untouched.
 
 ## Install
 
